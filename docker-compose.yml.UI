@@ -50,7 +50,7 @@ services:
     container_name: adguardhome
     restart: unless-stopped
     environment:
-      - TZ=America/Los_Angeles
+      - TZ=Europe/Moscow
     volumes:
       - ./work:/opt/adguardhome/work
       - ./conf:/opt/adguardhome/conf
