@@ -21,13 +21,13 @@ services:
 #      - '53:53'           # AdGuardHome DNS Port
 #      - '80:80'       # Default Address AdGuardHome WebUI
 #      - '853:853'         # DNS-TLS
-      - '56430:56430/udp' # wiregaurd port
-      - '56431:51821/tcp' # wg-easy webUI
+      - '51820:51820/udp' # wiregaurd port
+      - '51821:51821/tcp' # wg-easy webUI
     environment:
         # WG-EASY ENVS
       - WG_HOST=MYHOST_IP
       - PASSWORD=openode
-      - WG_PORT=56430
+      - WG_PORT=51820
       - WG_DEFAULT_ADDRESS=10.10.10.x
       - WG_DEFAULT_DNS=10.2.0.100
       - WG_MTU=1280
