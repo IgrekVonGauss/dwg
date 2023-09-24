@@ -16,7 +16,7 @@ services:
     environment:
       - WG_HOST=MYHOST_IP
       - PASSWORD=openode
-      - WG_PORT=51820
+      - WG_PORT=56430
       - WG_DEFAULT_ADDRESS=10.10.10.x
       - WG_DEFAULT_DNS=10.2.0.100
       - WG_ALLOWED_IPS=10.2.0.0/24, 0.0.0.0/0, ::/0
@@ -28,8 +28,8 @@ services:
     volumes:
       - .:/etc/wireguard
     ports:
-      - "51820:51820/udp"
-      - "51821:51821/tcp"
+      - "56430:56430/udp"
+      - "56431:51821/tcp"
     restart: unless-stopped
     cap_add:
       - NET_ADMIN
@@ -50,7 +50,7 @@ services:
     container_name: adguardhome
     restart: unless-stopped
     environment:
-      - TZ=America/Los_Angeles
+      - TZ=Europe/Moscow
     volumes:
       - ./work:/opt/adguardhome/work
       - ./conf:/opt/adguardhome/conf

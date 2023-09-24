@@ -136,19 +136,19 @@ if [[ "$dwg_set" == "1" ]]; then
 
 # Проверяем есть ли контейнер с именем wireguard
 
-printf "${BLUE} Сейчас проверим свободен ли порт 51820 и не установлен ли другой wireguard.\n${NC}"
+printf "${BLUE} Сейчас проверим свободен ли порт 56430 и не установлен ли другой wireguard.\n${NC}"
 
 if [[ $(docker ps -q --filter "name=wireguard") ]]; then
-    printf "!!!!>>> Другой Wireguard контейнер уже запущен, и вероятно занимает порт 51820. Пожалуйста удалите его и запустите скрипт заново\n "
+    printf "!!!!>>> Другой Wireguard контейнер уже запущен, и вероятно занимает порт 56430. Пожалуйста удалите его и запустите скрипт заново\n "
     printf "${RED} !!!!>>> Завершаю скрипт! \n${NC}"
     exit 1
 else
     printf "Wireguard контейнер не запущен в докер. Можно продолжать\n"
-    # Проверка, запущен ли контейнер, использующий порт 51821
-    if lsof -Pi :51820 -sTCP:LISTEN -t >/dev/null ; then
-        printf "${RED}!!!!>>> Порт 51820 уже используется контейнером.!\n ${NC}"
-        if docker ps --format '{{.Names}} {{.Ports}}' | grep -q "wireguard.*:51820->" ; then
-            printf "WireGuard контейнер использует порт 51820. Хотите продолжить установку? (y/n): "
+    # Проверка, запущен ли контейнер, использующий порт 56431
+    if lsof -Pi :56430 -sTCP:LISTEN -t >/dev/null ; then
+        printf "${RED}!!!!>>> Порт 56430 уже используется контейнером.!\n ${NC}"
+        if docker ps --format '{{.Names}} {{.Ports}}' | grep -q "wireguard.*:56430->" ; then
+            printf "WireGuard контейнер использует порт 56430. Хотите продолжить установку? (y/n): "
             read -r choice
             case "$choice" in 
               y|Y ) printf "Продолжаем установку...\n" ;;
@@ -160,7 +160,7 @@ else
             exit 1
         fi
     else
-        printf "Порт 51820 свободен.\n"
+        printf "Порт 56430 свободен.\n"
         printf "Хотите продолжить установку? (y/n): "
         read -r choice
         case "$choice" in 
@@ -264,20 +264,20 @@ elif [[ "$dwg_set" == "2" ]]; then
  #### ЗДЕСЬ КОД ДЛЯ УСТАНОВКИ DWG-UI
 # Проверяем есть ли контейнер с именем wireguard
 
-printf "${BLUE} Сейчас проверим свободен ли порт 51821 и не установлен ли другой wireguard.\n${NC}"
+printf "${BLUE} Сейчас проверим свободен ли порт 56431 и не установлен ли другой wireguard.\n${NC}"
 
 if [[ $(docker ps -q --filter "name=wireguard") ]]; then
-    printf "!!!!>>> Другой Wireguard контейнер уже запущен, и вероятно занимает порт 51821. Пожалуйста удалите его и запустите скрипт заново\n "
+    printf "!!!!>>> Другой Wireguard контейнер уже запущен, и вероятно занимает порт 56431. Пожалуйста удалите его и запустите скрипт заново\n "
     printf "${RED} !!!!>>> Завершаю скрипт! \n${NC}"
     exit 1
 else
     printf "Wireguard контейнер не запущен в докер. Можно продолжать\n"
-    # Проверка, запущен ли контейнер, использующий порт 51821
-    if lsof -Pi :51821 -sTCP:LISTEN -t >/dev/null ; then
-        printf "${RED}!!!!>>> Порт 51821 уже используется контейнером.!\n ${NC}"
-        if docker ps --format '{{.Names}} {{.Ports}}' | grep -q "wg-easy.*:51821->" ; then
+    # Проверка, запущен ли контейнер, использующий порт 56431
+    if lsof -Pi :56431 -sTCP:LISTEN -t >/dev/null ; then
+        printf "${RED}!!!!>>> Порт 56431 уже используется контейнером.!\n ${NC}"
+        if docker ps --format '{{.Names}} {{.Ports}}' | grep -q "wg-easy.*:56431->" ; then
             echo  "Для смены параметров WireGuard и окружения, используйте скрипт change.sh: "
-            printf "WG-EASY контейнер использует порт 51821. Хотите продолжить установку? (y/n): "
+            printf "WG-EASY контейнер использует порт 56431. Хотите продолжить установку? (y/n): "
             read -r choice
             case "$choice" in 
               y|Y ) printf "Продолжаем установку...\n" ;;
@@ -289,7 +289,7 @@ else
             exit 1
         fi
     else
-        printf "Порт 51821 свободен.\n"
+        printf "Порт 56431 свободен.\n"
         printf "Хотите продолжить установку? (y/n): "
         read -r choice
         case "$choice" in 
@@ -350,7 +350,7 @@ echo ""
 echo -e "Пароль от веб-интерфейса: ${BLUE}$CURRENT_PASSWORD${NC}"
 echo -e "IP адрес сервера: ${BLUE}$CURRENT_WG_HOST${NC}"
 echo -e "Маска пользовательских IP: ${BLUE}$CURRENT_WG_DEFAULT_ADDRESS${NC}"
-echo -e "Адрес входа в веб-интерфейс WireGuard после установки: ${YELLOW}http://$CURRENT_WG_HOST:51821${NC}"
+echo -e "Адрес входа в веб-интерфейс WireGuard после установки: ${YELLOW}http://$CURRENT_WG_HOST:56431${NC}"
 echo ""
 
  #### ЗДЕСЬ КОНЕЦ КОДА
@@ -382,19 +382,19 @@ elif [[ "$dwg_set" == "3" ]]; then  #DWG-DARK
  #### ЗДЕСЬ КОД ДЛЯ УСТАНОВКИ DWG-DARK
 # Проверяем есть ли контейнер с именем wireguard
 
-printf "${BLUE} Сейчас проверим свободен ли порт 51821 и не установлен ли другой wireguard.\n${NC}"
+printf "${BLUE} Сейчас проверим свободен ли порт 56431 и не установлен ли другой wireguard.\n${NC}"
 
 if [[ $(docker ps -q --filter "name=wireguard") ]]; then
-    printf "!!!!>>> Другой Wireguard контейнер уже запущен, и вероятно занимает порт 51821. Пожалуйста удалите его и запустите скрипт заново\n "
+    printf "!!!!>>> Другой Wireguard контейнер уже запущен, и вероятно занимает порт 56431. Пожалуйста удалите его и запустите скрипт заново\n "
     printf "${RED} !!!!>>> Завершаю скрипт! \n${NC}"
     exit 1
 else
     printf "Wireguard контейнер не запущен в докер. Можно продолжать\n"
-    # Проверка, запущен ли контейнер, использующий порт 51821
-    if lsof -Pi :51821 -sTCP:LISTEN -t >/dev/null ; then
-        printf "${RED}!!!!>>> Порт 51821 уже используется контейнером.!\n ${NC}"
-        if docker ps --format '{{.Names}} {{.Ports}}' | grep -q "wg-easy.*:51821->" ; then
-            printf "WG-EASY контейнер использует порт 51821. Хотите продолжить установку? (y/n): "
+    # Проверка, запущен ли контейнер, использующий порт 56431
+    if lsof -Pi :56431 -sTCP:LISTEN -t >/dev/null ; then
+        printf "${RED}!!!!>>> Порт 56431 уже используется контейнером.!\n ${NC}"
+        if docker ps --format '{{.Names}} {{.Ports}}' | grep -q "wg-easy.*:56431->" ; then
+            printf "WG-EASY контейнер использует порт 56431. Хотите продолжить установку? (y/n): "
             read -r choice
             case "$choice" in 
               y|Y ) printf "Продолжаем установку...\n" ;;
@@ -406,7 +406,7 @@ else
             exit 1
         fi
     else
-        printf "Порт 51821 свободен.\n"
+        printf "Порт 56431 свободен.\n"
         printf "Хотите продолжить установку? (y/n): "
         read -r choice
         case "$choice" in 
@@ -475,7 +475,7 @@ echo ""
 echo -e "Пароль от веб-интерфейса: ${BLUE}$CURRENT_PASSWORD${NC}"
 echo -e "IP адрес сервера: ${BLUE}$CURRENT_WG_HOST${NC}"
 echo -e "Маска пользовательских IP: ${BLUE}$CURRENT_WG_DEFAULT_ADDRESS${NC}"
-echo -e "Адрес входа в веб-интерфейс WireGuard после установки: ${YELLOW}http://$CURRENT_WG_HOST:51821${NC}"
+echo -e "Адрес входа в веб-интерфейс WireGuard после установки: ${YELLOW}http://$CURRENT_WG_HOST:56431${NC}"
 echo ""
 
  #### ЗДЕСЬ КОНЕЦ КОДА
@@ -567,7 +567,7 @@ if [[ "$dwg_set" == "2" ]]; then
   echo -e "Пароль от веб-интерфейса: ${BLUE}$CURRENT_PASSWORD${NC}"
   echo -e "IP адрес сервера: ${BLUE}$CURRENT_WG_HOST${NC}"
   echo -e "Маска пользовательских IP: ${BLUE}$CURRENT_WG_DEFAULT_ADDRESS${NC}"
-  echo -e "Адрес входа в веб-интерфейс WireGuard после установки: ${YELLOW}http://$CURRENT_WG_HOST:51821${NC}"
+  echo -e "Адрес входа в веб-интерфейс WireGuard после установки: ${YELLOW}http://$CURRENT_WG_HOST:56431${NC}"
   echo ""
   printf '\e[48;5;202m\e[30m ################################################################## \e[0m\n'
   printf '\e[48;5;202m\e[30m Не забудь отдельно установить UFW-Docker, для закрытия веб-интерфейса wireguard. \e[0m\n'
@@ -595,7 +595,7 @@ if [[ "$dwg_set" == "3" ]]; then
   echo -e "Пароль от веб-интерфейса: ${BLUE}$CURRENT_PASSWORD${NC}"
   echo -e "IP адрес сервера: ${BLUE}$CURRENT_WG_HOST${NC}"
   echo -e "Маска пользовательских IP: ${BLUE}$CURRENT_WG_DEFAULT_ADDRESS${NC}"
-  echo -e "Адрес входа в веб-интерфейс WireGuard после установки: ${YELLOW}http://$CURRENT_WG_HOST:51821${NC}"
+  echo -e "Адрес входа в веб-интерфейс WireGuard после установки: ${YELLOW}http://$CURRENT_WG_HOST:56431${NC}"
   echo ""
   printf '\e[48;5;202m\e[30m ################################################################## \e[0m\n'
   printf '\e[48;5;202m\e[30m Не забудь отдельно установить UFW-Docker, для закрытия веб-интерфейса wireguard. \e[0m\n'
