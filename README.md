@@ -1,20 +1,20 @@
-# DWG - Docker WireGuard (DWG) - Проект одного скрипта 
+# DWG - Docker WireGuard (DWG) - Проект одного скрипта v2
 <img src="https://user-images.githubusercontent.com/50312583/231138618-750b4b04-ade0-4e67-852e-f103030684a9.png" width="400">
+
+# Долгожданное обновление DWG.
+## Теперь dwg создается как сервис с возможность управления им. 
+## После установки вводите: `dwg help` для получения информации.
 
 ### Представляю вам лучшую сборку для самой быстрой настройки VPN сервера на WireGuard.
 ### Во время установки можно выбрать, что установить: 
-### **DWG-UI** = AdGuard with DoH DNS +  Wireguard with UI (wg-easy) + Unbound 
+### **DWG-UI** = AdGuard with DoH DNS +  Wireguard with UI (wg-easy) 
 ### **DWG-CLI** = AdGuard with DoH DNS +  Wireguard CLI + Unbound 
-### **DWG-DARK** = AdGuard with DoH DNS +  Wireguard with UI (WG-easy) + Unbound  (Контроль каждого пользователя в AdGuardHome)
+### **DWG-DARK** = AdGuard with DoH DNS +  Wireguard with UI (WG-easy)  (Контроль каждого пользователя в AdGuardHome)
+### **DWG-A** = **AMNEZIA WG-EASY** + AdGuard with DoH DNS +  Wireguard with UI (WG-easy) 
+
 Тема поддержки на моём форуме:
 https://openode.ru/topic/370-dwg-multi/
 
-#### `change.sh` - файл для смены пароля в AdGuardHome
-
-# Требования
-* Чистый,новый сервер (KVM виртуализация - **!LXD не поддерживается!**) 
-* Поддерживаемые операционные системы: **Ubuntu 20.04, 22.04; Debian 11, Centos 8,9**
-* Не рекомендуется к установке с другими сборками, либо переустановка одного за другим - могут быть ошибки.
 
 Скрипт устанавливает все автоматически.
 Все комментарии по скрипту внутри в комментариях
@@ -25,46 +25,16 @@ https://openode.ru/topic/370-dwg-multi/
 3. Доступные тарифы мощных сборок.
 4. Лояльность к VPN использованию серверов.
 ### [AEZA.net](https://aeza.net/?ref=377137)  -  бонус +15% к пополнению
-### [VDSina.ru](https://vdsina.ru/?partner=rwmhc7jbcg) по рефералке скидка 10% 	
-### [Melbicom](https://melbicom.ru/?from=44619)
-Достаточно хорошая стабильность и связь в 1гб/с (причем с гарантиями не менее 100мбит\с)
-### [Pq.Hosting](https://pq.hosting/?from=45709)
-Все критерии закрыты и 1Гб/с
-### [Fornex](https://fornex.com/code/jwo1cg/)
-Базовый вариант на котором хотел бы отметить своё внимание. Претензий нет, кроме как скорость 100мбит/сек. (но хочется отметить, что скорость эта достаточно стабильная!)
-
 
 # Самая быстрая установка - 1 минута
 
 Запусти команду на чистом сервере
 
 ```bash
-bash <(wget -qO- https://raw.githubusercontent.com/DigneZzZ/dwg/main/set-up.sh)
+bash <(wget -qO- https://raw.githubusercontent.com/DigneZzZ/dwg/main/set-up.sh) install
 ```
 
-### После запуска скрипта, будет предложен выбор, что установить:
-DWG-CLI или DWG-UI
-## Что установится:
 
-0. Сначала установится Git, чтобы можно было скопировать мой репозиторий
-1. Docker - последняя версия
-2. Docker-compose - последняя версия
-3. **Wg-easy** - интерактивный режим введения пароля для веб 
-3. или стандартный **WireGuard** - режим работы через командную строку
-4. AdGuard Home - интерактивный режим создания пользователя и пароля (можно оставить стандартным)
-5. Unbound - все в стоке
-6. apache2-utils - необходим для генерации хэш-паролей
-7. ssh.sh - скрипт для смены порта SSH подключения
-8. ufw.sh - скрипт для установки UFW Firewall.
-9. Напомнит установить ufw-docker и сам закроет доступ извне! **ВНИМАНИЕ! Запускать только после того как создадите для себя клиента в WireGUARD!!!**
-
-Для измнения каких либо параметров, можно воспользоваться скриптом:
-```bash
-cd dwg && ./change.sh
-```
-Скриптом можно изменить:
-При использовании DWG-UI: Все конфиги в WG-Easy (пароль к веб-интерфейсу, значения wg-allowed_ips, mtu и др.
-Логин и пароль к AdGuardHome.
 
 ## Описание скриптов в папке tools
 * *agh.sh* - смена логина и пароля к AGH 
@@ -79,15 +49,8 @@ cd dwg && ./change.sh
 
 👤 ** Alexey **
 * Git: [DigneZzZ](https://github.com/DigneZzZ)
-* Site: [OpeNode.RU](https://openode.ru)
-
-# Скриншоты
-## Wireguard-Easy Web-UI
-![image](https://user-images.githubusercontent.com/50312583/206703310-3bc8f759-91fa-42db-8d43-eca0050c70bf.png)
-
-## Adguard Web-UI
-![image](https://user-images.githubusercontent.com/50312583/206703207-f3bd39f1-72c7-458c-9893-ad2126a0d47b.png)
-
+* Site: [OpeNode.XYZ](https://openode.xyz)
+* Blog: [NeoNode.cc](https://neonode.cc)
 
 
 ## После установки
@@ -103,7 +66,7 @@ http://10.2.0.100/
 
 ### Login: **admin** 
 ### Password: **admin**
-Пароль по умолчанию, при ручной установке: `a12345678`
+
 
 
 ## Предустановленный Adlists для Рунета в том числе:

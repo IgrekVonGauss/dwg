@@ -1,655 +1,1137 @@
 #!/bin/bash
 
-echo '  
+# URL для загрузки скрипта
+SCRIPT_URL="https://raw.githubusercontent.com/DigneZzZ/dwg/refs/heads/main/set-up.sh"
 
-
-
-      ██████╗ ██╗    ██╗ ██████╗ 
-      ██╔══██╗██║    ██║██╔════╝ 
-      ██║  ██║██║ █╗ ██║██║  ███╗
-      ██║  ██║██║███╗██║██║   ██║
-      ██████╔╝╚███╔███╔╝╚██████╔╝
-      ╚═════╝  ╚══╝╚══╝  ╚═════╝ 
-                           
-BBBB  Y   Y     DDD  III  GGG  N   N EEEE ZZZZZ ZZZZZ ZZZZZ 
-B   B  Y Y      D  D  I  G     NN  N E       Z     Z     Z  
-BBBB    Y       D  D  I  G  GG N N N EEE    Z     Z     Z   
-B   B   Y       D  D  I  G   G N  NN E     Z     Z     Z    
-BBBB    Y       DDD  III  GGG  N   N EEEE ZZZZZ ZZZZZ ZZZZZ 
-                                                            
-
-'
-sleep 2s
-
-if grep -q "VERSION_ID=\"10\"" /etc/os-release; then
-  echo "Этот скрипт не может быть выполнен на Debian 10."
-  exit 1
-fi
-
-# Здесь идет код скрипта, который должен быть выполнен на всех системах, кроме Debian 10
-
+# Рабочая директория для контейнеров
+WORK_DIR="/opt/dwg"
+# Папка для конфигурации AdGuardHome
+CONF_DIR="$WORK_DIR/conf"
+MYHOST_IP=$(curl -s https://checkip.amazonaws.com/)
+# Цветовые коды
 GREEN='\033[0;32m'
 YELLOW='\033[0;33m'
 BLUE='\033[0;34m'
 RED='\033[0;31m'
 NC='\033[0m'
 
-# Проверяем, выполняется ли скрипт от имени пользователя root
+# Проверка запуска от root
 if [ "$EUID" -ne 0 ]; then
-  echo -e "${RED}Запустите скрипт с правами root${NC}"
-  exit
-fi
-
-
-# Получаем внешний IP-адрес
-MYHOST_IP=$(curl -s https://checkip.amazonaws.com/) 
-# Обновление пакетов
-printf "\e[42mОбновление пакетов системы...\e[0m\n"
-apt update
-printf "\e[42mПакеты успешно обновлены.\e[0m\n"
-
-# Установка Git
-printf "\e[42mУстановка Git...\e[0m\n"
-apt install git -y
-printf "\e[42mGit успешно установлен.\e[0m\n"
-
-# Клонирование репозитория
-printf "\e[42mКлонирование репозитория dwg...\e[0m\n"
-git clone https://github.com/dignezzz/dwg.git temp
-
-if [ ! -d "dwg" ]; then
-  mkdir dwg
-  echo "Папка DWG создана."
-else
-  echo "Папка DWG уже существует."
-fi
-
-# копирование содержимого временной директории в целевую директорию с перезаписью существующих файлов и папок
-cp -rf temp/* dwg/
-
-# удаление временной директории со всем ее содержимым
-rm -rf temp
-printf "\e[42mРепозиторий dwg успешно клонирован до актуальной версии из репозитория автора.\e[0m\n"
-
-# Установка прав на директорию tools
-printf "\e[42mУстановка прав на директорию DWG...\e[0m\n"
-chmod +x -R dwg
-printf "\e[42mПрава на директорию DWG успешно установлены.\e[0m\n"
-
-# Переходим в папку DWG
-printf "\e[42mПереходим в папку dwg...\e[0m\n"
-cd dwg
-printf "\e[42mПерешли в папку dwg\e[0m\n"
-
-
-
-
-# Устанавливаем редактор Nano
-if ! command -v nano &> /dev/null
-then
-    read -p "Хотите установить текстовый редактор Nano? (y/n) " INSTALL_NANO
-    if [ "$INSTALL_NANO" == "y" ]; then
-        apt-get update
-        apt-get install -y nano
-    fi
-else
-    echo "Текстовый редактор Nano уже установлен."
-fi
-printf "\e[42mЗапускаем скрипт для установки Docker и Docker-compose...\e[0m\n"
-./tools/docker.sh
-printf "\e[42mЗакончили выполнение скрипта\e[0m\n"
-
-# Выводим в консоль сообщение с инструкциями для пользователя
-printf "Предлагается установка одной из следующих сборок:\n"
-printf "1. DWG-CLI - сборка с классическим WireGuard и управлением через командную строку (или ручную корректировку docker-compose.yml) \n"
-printf "2. DWG-UI - сборка с веб-интерфейсом в реализации WG-Easy (есть возможность использования API)\n"
-printf "3. DWG-DARK - сборка (экспериментальная) с веб-интерфейсом в реализации WG-Easy, но собрано в одной сети с AdGuardHome - обеспечивает контроль за каждым пользователем.\n"
-printf "Выберите, что хотите установить (введите номер 1 или 2 или 3):"
-
-# Считываем ввод пользователя и сохраняем его в переменную
-read -r dwg_set
-
-# Проверяем, что пользователь ввел 1 или 2
-if [[ "$dwg_set" == "1" ]]; then
-  # Проверяем, существует ли файл docker-compose.yml
-  if [[ -f "docker-compose.yml" ]]; then
-    # Если файл существует, предлагаем пользователю переименовать его
-    printf "Файл docker-compose.yml уже существует. Хотите переименовать его в docker-compose.yml.old? (y/n)\n"
-    read -r rename_response
-    if [[ "$rename_response" == "y" ]]; then
-      mv docker-compose.yml docker-compose.yml.old.$((100 + RANDOM % 2900))
-    else
-      exit 1
-    fi
-  fi
-  # Переименовываем файл docker-compose.yml.CLI в docker-compose.yml
-  mv docker-compose.yml.CLI docker-compose.yml
-  printf "Файл docker-compose.yml.CLI успешно переименован в docker-compose.yml\n"
-    #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####   #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### 
-      #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####   #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### 
-        #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####   #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### 
-          #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####   #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### 
-            #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####   #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### 
-  #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####   #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### 
- #### ЗДЕСЬ КОД ДЛЯ УСТАНОВКИ DWG-CLI
-
-
-# Проверяем есть ли контейнер с именем wireguard
-
-printf "${BLUE} Сейчас проверим свободен ли порт 51820 и не установлен ли другой wireguard.\n${NC}"
-
-if [[ $(docker ps -q --filter "name=wireguard") ]]; then
-    printf "!!!!>>> Другой Wireguard контейнер уже запущен, и вероятно занимает порт 51820. Пожалуйста удалите его и запустите скрипт заново\n "
-    printf "${RED} !!!!>>> Завершаю скрипт! \n${NC}"
+    echo -e "${RED}Запустите скрипт с правами root${NC}"
     exit 1
-else
-    printf "Wireguard контейнер не запущен в докер. Можно продолжать\n"
-    # Проверка, запущен ли контейнер, использующий порт 51821
-    if lsof -Pi :51820 -sTCP:LISTEN -t >/dev/null ; then
-        printf "${RED}!!!!>>> Порт 51820 уже используется контейнером.!\n ${NC}"
-        if docker ps --format '{{.Names}} {{.Ports}}' | grep -q "wireguard.*:51820->" ; then
-            printf "WireGuard контейнер использует порт 51820. Хотите продолжить установку? (y/n): "
-            read -r choice
-            case "$choice" in 
-              y|Y ) printf "Продолжаем установку...\n" ;;
-              n|N ) printf "${RED} ******* Завершаю скрипт!\n ${NC}" ; exit 1;;
-              * ) printf "${RED}Некорректный ввод. Установка остановлена.${NC}" ; exit 1;;
-            esac
-        else
-            printf "${RED} ******* Завершаю скрипт!\n ${NC}"
-            exit 1
-        fi
-    else
-        printf "Порт 51820 свободен.\n"
-        printf "Хотите продолжить установку? (y/n): "
-        read -r choice
-        case "$choice" in 
-          y|Y ) printf "Продолжаем установку...\n" ;;
-          n|N ) printf "Установка остановлена.${NC}" ; exit 1;;
-          * ) printf "${RED}Некорректный ввод. Установка остановлена.${NC}" ; exit 1;;
-        esac
-    fi
 fi
 
-printf "${GREEN} Этап проверки докера закончен, можно продолжить установку\n${NC}"
-
-
-
-##### ЗДЕСЬ БУДЕТ КОД ДЛЯ КОРРЕКТИРОВКИ COMPOSE
-# Получаем внешний IP-адрес
-MYHOST_IP=$(curl -s https://checkip.amazonaws.com/) 
-
-# Записываем IP-адрес в файл docker-compose.yml с меткой MYHOSTIP
-sed -i -E  "s/- SERVERURL=.*/- SERVERURL=$MYHOST_IP/g" docker-compose.yml
-
-echo "Выберите способ настройки PEERS:"
-echo "1. Установить количество пиров"
-echo "2. Задать имена пиров через запятую"
-read -p "Введите номер способа: " choice
-
-if [ $choice -eq 1 ]
-then
-    read -p "Введите количество пиров: " peers
-    sed -i "s/- PEERS=1/- PEERS=$peers/g" docker-compose.yml
-    echo "Количество пиров изменено на $peers"
-elif [ $choice -eq 2 ]
-then
-    read -p "Введите имена пиров через запятую: " peers
-    # Проверяем, используются ли имена
-    if [[ "$peers" == *[!a-zA-Z0-9,]* ]]
-    then
-        echo "Ошибка: имена пиров могут содержать только латинские буквы и цифры"
+# Функция проверки доступности порта
+check_port() {
+    local port=$1
+    local proto=$2  # "tcp" или "udp"
+    if ss -tuln | grep -q ":$port "; then
+        echo -e "${RED}Порт $port ($proto) уже занят${NC}"
         exit 1
     fi
-    # Проверяем, существует ли уже переменная среды PEERS
-    if grep -q "PEERS=" docker-compose.yml
-    then
-        # Если переменная уже существует
-        # Спрашиваем пользователя, заменить ли текущие имена на новые
-        echo "Переменная PEERS уже существует"
-        echo "1. Заменить текущие имена на новые"
-        echo "2. Добавить новые имена к текущим"
-        read -p "Введите номер способа: " add_choice
-        if [ $add_choice -eq 1 ]
-        then
-            sed -i "s/- PEERS=.*/- PEERS=$peers/g" docker-compose.yml
-        elif [ $add_choice -eq 2 ]
-        then
-            current_peers=$(grep PEERS docker-compose.yml | cut -d '=' -f 2 | tr -d '"')
-            new_peers=$(echo "$current_peers,$peers")
-            sed -i "s/- PEERS=.*/- PEERS=$new_peers/g" docker-compose.yml
-        else
-            echo "Ошибка: неверный выбор"
+    echo -e "${GREEN}Порт $port ($proto) свободен${NC}"
+}
+
+# Установка зависимостей
+install_deps() {
+    echo -e "${GREEN}Проверка и установка зависимостей...${NC}"
+    apt update -y
+
+    if ! command -v docker &> /dev/null; then
+        echo -e "${YELLOW}Docker не установлен, устанавливаем с помощью официального скрипта...${NC}"
+        curl -fsSL https://get.docker.com -o get-docker.sh
+        sh get-docker.sh
+        rm -f get-docker.sh
+        if [ $? -ne 0 ]; then
+            echo -e "${RED}Ошибка при установке Docker${NC}"
             exit 1
         fi
+        echo -e "${GREEN}Docker успешно установлен${NC}"
     else
-        # Если переменная не существует, добавляем ее с новыми именами
-        sed -i "s/- PEERS=1/- PEERS=\"$peers\"/g" docker-compose.yml
+        echo -e "${GREEN}Docker уже установлен${NC}"
     fi
-    echo "Имена пиров изменены на $peers"
-else
-    echo "Ошибка: неверный выбор"
-    exit 1
-fi
 
-
- #### ЗДЕСЬ КОНЕЦ КОДА
-  #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####   #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### 
-    #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####   #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### 
-      #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####   #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### 
-        #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####   #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### 
-          #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####   #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### 
-          
-elif [[ "$dwg_set" == "2" ]]; then
-  # Проверяем, существует ли файл docker-compose.yml
-  if [[ -f "docker-compose.yml" ]]; then
-    # Если файл существует, предлагаем пользователю переименовать его
-    printf "Файл docker-compose.yml уже существует. Хотите переименовать его в docker-compose.yml.old? (y/n)\n"
-    read -r rename_response
-    if [[ "$rename_response" == "y" ]]; then
-      mv docker-compose.yml docker-compose.yml.old.$((100 + RANDOM % 2900))
+    # Проверка версии Docker Compose
+    if ! docker compose version &> /dev/null; then
+        echo -e "${YELLOW}Docker Compose не установлен, обеспечиваем поддержку...${NC}"
+        # Плагин Docker Compose V2 уже включен в get-docker.sh для новых версий Docker
+        # Если по какой-то причине не работает, устанавливаем вручную
+        if ! docker compose version &> /dev/null; then
+            echo -e "${YELLOW}Установка плагина docker-compose-plugin...${NC}"
+            apt install -y docker-compose-plugin
+            if [ $? -ne 0 ]; then
+                echo -e "${RED}Ошибка при установке docker-compose-plugin${NC}"
+                exit 1
+            fi
+        fi
+        echo -e "${GREEN}Docker Compose успешно настроен${NC}"
     else
-      exit 1
+        echo -e "${GREEN}Docker Compose уже установлен${NC}"
     fi
-  fi
-  # Переименовываем файл docker-compose.yml.UI в docker-compose.yml
-  mv docker-compose.yml.UI docker-compose.yml
-  printf "Файл docker-compose.yml.UI успешно переименован в docker-compose.yml\n"
-  #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####   #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### 
-    #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####   #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### 
-      #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####   #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### 
-        #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####   #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### 
-          #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####   #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### 
-            #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####   #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### 
- #### ЗДЕСЬ КОД ДЛЯ УСТАНОВКИ DWG-UI
-# Проверяем есть ли контейнер с именем wireguard
 
-printf "${BLUE} Сейчас проверим свободен ли порт 51821 и не установлен ли другой wireguard.\n${NC}"
+    # Проверка остальных зависимостей (оставляем без изменений)
+    if ! command -v qrencode &> /dev/null; then
+        echo "qrencode не установлен, устанавливаем..."
+        apt install -y qrencode
+    else
+        echo "qrencode уже установлен"
+    fi
 
-if [[ $(docker ps -q --filter "name=wireguard") ]]; then
-    printf "!!!!>>> Другой Wireguard контейнер уже запущен, и вероятно занимает порт 51821. Пожалуйста удалите его и запустите скрипт заново\n "
-    printf "${RED} !!!!>>> Завершаю скрипт! \n${NC}"
-    exit 1
-else
-    printf "Wireguard контейнер не запущен в докер. Можно продолжать\n"
-    # Проверка, запущен ли контейнер, использующий порт 51821
-    if lsof -Pi :51821 -sTCP:LISTEN -t >/dev/null ; then
-        printf "${RED}!!!!>>> Порт 51821 уже используется контейнером.!\n ${NC}"
-        if docker ps --format '{{.Names}} {{.Ports}}' | grep -q "wg-easy.*:51821->" ; then
-            echo  "Для смены параметров WireGuard и окружения, используйте скрипт change.sh: "
-            printf "WG-EASY контейнер использует порт 51821. Хотите продолжить установку? (y/n): "
-            read -r choice
-            case "$choice" in 
-              y|Y ) printf "Продолжаем установку...\n" ;;
-              n|N ) printf "${RED} ******* Завершаю скрипт!\n ${NC}" ; exit 1;;
-              * ) printf "${RED}Некорректный ввод. Установка остановлена.${NC}" ; exit 1;;
-            esac
+    if ! command -v htpasswd &> /dev/null; then
+        echo "htpasswd не установлен, устанавливаем apache2-utils..."
+        apt install -y apache2-utils
+    else
+        echo "htpasswd уже установлен"
+    fi
+
+    if ! command -v ss &> /dev/null; then
+        echo "net-tools не установлен, устанавливаем..."
+        apt install -y net-tools
+    else
+        echo "net-tools уже установлен"
+    fi
+
+    if ! command -v docker &> /dev/null || ! docker compose version &> /dev/null; then
+        echo -e "${RED}Ошибка: Docker или Docker Compose не установлены${NC}"
+        exit 1
+    fi
+    if ! command -v htpasswd &> /dev/null; then
+        echo -e "${RED}Ошибка: htpasswd не установлен${NC}"
+        exit 1
+    fi
+    if ! command -v ss &> /dev/null; then
+        echo -e "${RED}Ошибка: ss (net-tools) не установлен${NC}"
+        exit 1
+    fi
+}
+
+# Функция для генерации bcrypt-хэша
+generate_hash() {
+    local password=$1
+    htpasswd -nbB admin "$password" | cut -d ":" -f 2 | sed 's/\$/\$\$/g'
+}
+
+# Функция для определения версии DWG
+get_dwg_version() {
+    if [ ! -f "$WORK_DIR/docker-compose.yml" ]; then
+        echo "unknown"
+        return
+    fi
+    if grep -q "amnezia-wg-easy" "$WORK_DIR/docker-compose.yml"; then
+        echo "amnezia"
+    elif grep -q "wg-easy" "$WORK_DIR/docker-compose.yml"; then
+        echo "ui"
+    elif grep -q "adwireguard" "$WORK_DIR/docker-compose.yml"; then
+        echo "dark"
+    elif grep -q "wireguard" "$WORK_DIR/docker-compose.yml"; then
+        echo "cli"
+    else
+        echo "unknown"
+    fi
+}
+
+# Функция установки скрипта как сервиса
+script_install() {
+    echo -e "${GREEN}Установка скрипта как сервиса в /usr/local/bin/dwg...${NC}"
+    wget -qO /usr/local/bin/dwg "$SCRIPT_URL"
+    chmod +x /usr/local/bin/dwg
+    if [ -s /usr/local/bin/dwg ]; then
+        echo -e "${GREEN}Скрипт успешно установлен${NC}"
+    else
+        echo -e "${RED}Ошибка при установке скрипта: файл пустой или не скачан${NC}"
+        exit 1
+    fi
+}
+
+# Функция установки DWG
+install_dwg() {
+    if grep -q "VERSION_ID=\"10\"" /etc/os-release; then
+        echo -e "${RED}Этот скрипт не поддерживает Debian 10${NC}"
+        exit 1
+    fi
+
+    if [ -f "$WORK_DIR/docker-compose.yml" ]; then
+        echo -e "${YELLOW}DWG уже установлен (версия: $(get_dwg_version)).${NC}"
+        echo -e "${YELLOW}Хотите переустановить? Это удалит текущие контейнеры и данные (y/n): ${NC}"
+        read reinstall
+        if [ "$reinstall" == "y" ]; then
+            echo -e "${GREEN}Остановка и удаление текущих контейнеров...${NC}"
+            docker compose -f "$WORK_DIR/docker-compose.yml" down -v
+            rm -rf "$WORK_DIR"/*
+            echo -e "${GREEN}Текущая установка удалена${NC}"
         else
-            printf "${RED} ******* Завершаю скрипт!\n ${NC}"
+            echo -e "${GREEN}Установка отменена${NC}"
+            exit 0
+        fi
+    fi
+
+    script_install
+    install_deps
+    mkdir -p "$WORK_DIR" && cd "$WORK_DIR" || exit 1
+    mkdir -p "$CONF_DIR" || exit 1
+    MYHOST_IP=$(curl -s https://checkip.amazonaws.com/)
+
+    echo "Выберите тип установки:"
+    echo "1. DWG-CLI (WireGuard CLI)"
+    echo "2. DWG-UI (WireGuard с веб-интерфейсом + AdGuardHome)"
+    echo "3. DWG-DARK (WG + AdGuardHome в одном контейнере)"
+    echo "4. DWG-A (DWG-Amnezia + AdGuardHome)"
+    read -p "Введите номер (1-4): " setup_choice
+
+    case $setup_choice in
+        1) # DWG-CLI
+            check_port 51820 "udp"
+            compose_file=$(cat <<EOF
+version: "3"
+services:
+  wireguard:
+    image: lscr.io/linuxserver/wireguard:latest
+    container_name: wireguard
+    depends_on: [adguardhome]
+    cap_add:
+      - NET_ADMIN
+    environment:
+      - TZ=Europe/Moscow
+      - SERVERURL=$MYHOST_IP
+      - SERVERPORT=51820
+      - PEERS=1
+      - PEERDNS=10.2.0.100
+      - INTERNAL_SUBNET=10.10.10.0
+      - DNS=10.2.0.100
+      - POSTUP='iptables -A FORWARD -i %i -j ACCEPT; iptables -A FORWARD -o %i -j ACCEPT; iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE'
+      - POSTDOWN='iptables -D FORWARD -i %i -j ACCEPT; iptables -D FORWARD -o %i -j ACCEPT; iptables -t nat -D POSTROUTING -o eth0 -j MASQUERADE'
+      - ALLOWEDIPS=0.0.0.0/0,::/0
+    volumes:
+      - ./wireguard:/config
+      - /lib/modules:/lib/modules
+    ports:
+      - "51820:51820/udp"
+    sysctls:
+      - net.ipv4.conf.all.src_valid_mark=1
+    restart: unless-stopped
+    networks:
+      private_network:
+        ipv4_address: 10.2.0.3
+
+  adguardhome:
+    image: adguard/adguardhome:latest
+    container_name: adguardhome
+    restart: unless-stopped
+    environment:
+      - TZ=Europe/Moscow
+    volumes:
+      - ./work:/opt/adguardhome/work
+      - $CONF_DIR:/opt/adguardhome/conf
+    networks:
+      private_network:
+        ipv4_address: 10.2.0.100
+
+networks:
+  private_network:
+    ipam:
+      driver: default
+      config:
+        - subnet: 10.2.0.0/24
+EOF
+            )
+            read -p "Введите логин для AdGuardHome (по умолчанию: admin): " adguard_user
+            adguard_user=${adguard_user:-admin}
+            read -p "Введите пароль для AdGuardHome (по умолчанию: admin): " adguard_password
+            adguard_password=${adguard_password:-admin}
+            adguard_hash=$(htpasswd -nbB "$adguard_user" "$adguard_password" | cut -d ":" -f 2)
+            ;;
+        2) # DWG-UI с AdGuardHome
+            read -p "Введите пароль для wg-easy (по умолчанию: foobar123): " wg_password
+            wg_password=${wg_password:-foobar123}
+            if [[ ! "$wg_password" =~ ^[[:alnum:]]+$ ]]; then
+                echo -e "${RED}Пароль должен содержать только буквы и цифры${NC}"
+                exit 1
+            fi
+            wg_hash=$(generate_hash "$wg_password")
+            echo -e "${YELLOW}Ваш внешний IP-адрес: $MYHOST_IP${NC}"
+            read -p "Использовать внешний IP ($MYHOST_IP) или указать свой домен для wg-easy? (ip/domain, по умолчанию: ip): " host_choice
+            host_choice=${host_choice:-ip}
+            if [ "$host_choice" == "domain" ]; then
+                read -p "Введите ваш домен (например, my.domain.com): " wg_host
+                if [ -z "$wg_host" ]; then
+                    echo -e "${RED}Домен не указан, используется внешний IP${NC}"
+                    wg_host=$MYHOST_IP
+                fi
+            else
+                wg_host=$MYHOST_IP
+            fi
+
+            echo -e "${YELLOW}Настройка опциональных параметров:${NC}"
+            read -p "Выберите язык интерфейса (en, ru, fr и т.д., по умолчанию: en): " lang
+            lang=${lang:-en}
+            read -p "Порт веб-интерфейса (по умолчанию: 51821): " port
+            port=${port:-51821}
+            check_port "$port" "tcp"
+            read -p "Порт WireGuard (по умолчанию: 51820): " wg_port
+            wg_port=${wg_port:-51820}
+            check_port "$wg_port" "udp"
+            read -p "Порт конфигурации WireGuard (по умолчанию: 92820): " wg_config_port
+            wg_config_port=${wg_config_port:-92820}
+            check_port "$wg_config_port" "tcp"
+            read -p "Шаблон IP-адресов клиентов (по умолчанию: 10.10.0.x): " wg_default_address
+            wg_default_address=${wg_default_address:-10.10.0.x}
+            read -p "DNS-сервер по умолчанию (по умолчанию: 10.2.0.100 для AdGuardHome): " wg_default_dns
+            wg_default_dns=${wg_default_dns:-10.2.0.100}
+            read -p "MTU WireGuard (по умолчанию: 1420): " wg_mtu
+            wg_mtu=${wg_mtu:-1420}
+            read -p "Разрешенные IP (по умолчанию: 0.0.0.0/0, ::/0): " wg_allowed_ips
+            wg_allowed_ips=${wg_allowed_ips:-"0.0.0.0/0, ::/0"}
+            read -p "Persistent Keepalive (по умолчанию: 25): " wg_persistent_keepalive
+            wg_persistent_keepalive=${wg_persistent_keepalive:-25}
+            read -p "Pre-Up команда (по умолчанию: пусто): " wg_pre_up
+            read -p "Post-Up команда (по умолчанию: пусто): " wg_post_up
+            read -p "Pre-Down команда (по умолчанию: пусто): " wg_pre_down
+            read -p "Post-Down команда (по умолчанию: пусто): " wg_post_down
+            read -p "Включить статистику трафика в UI? (true/false, по умолчанию: false): " ui_traffic_stats
+            ui_traffic_stats=${ui_traffic_stats:-true}
+            read -p "Тип графиков в UI (0 - выкл, 1 - линия, 2 - область, 3 - столбцы, по умолчанию: 0): " ui_chart_type
+            ui_chart_type=${ui_chart_type:-2}
+            read -p "Включить одноразовые ссылки? (true/false, по умолчанию: false): " wg_enable_one_time_links
+            wg_enable_one_time_links=${wg_enable_one_time_links:-false}
+            read -p "Включить сортировку клиентов в UI? (true/false, по умолчанию: false): " ui_enable_sort_clients
+            ui_enable_sort_clients=${ui_enable_sort_clients:-true}
+            read -p "Включить время истечения для клиентов? (true/false, по умолчанию: false): " wg_enable_expires_time
+            wg_enable_expires_time=${wg_enable_expires_time:-true}
+            read -p "Включить Prometheus метрики? (true/false, по умолчанию: false): " enable_prometheus_metrics
+            enable_prometheus_metrics=${enable_prometheus_metrics:-false}
+            if [ "$enable_prometheus_metrics" == "true" ]; then
+                read -p "Введите пароль для Prometheus (по умолчанию: prometheus_password): " prometheus_password
+                prometheus_password=${prometheus_password:-prometheus_password}
+                prometheus_hash=$(generate_hash "$prometheus_password")
+            fi
+
+            read -p "Введите логин для AdGuardHome (по умолчанию: admin): " adguard_user
+            adguard_user=${adguard_user:-admin}
+            read -p "Введите пароль для AdGuardHome (по умолчанию: admin): " adguard_password
+            adguard_password=${adguard_password:-admin}
+            adguard_hash=$(htpasswd -nbB "$adguard_user" "$adguard_password" | cut -d ":" -f 2)
+
+            compose_file=$(cat <<EOF
+version: "3.8"
+volumes:
+  etc_wireguard:
+
+services:
+  wg-easy:
+    image: ghcr.io/wg-easy/wg-easy
+    container_name: wg-easy
+    depends_on: [adguardhome]
+    volumes:
+      - etc_wireguard:/etc/wireguard
+    ports:
+      - "$wg_port:$wg_port/udp"
+      - "$port:$port/tcp"
+    restart: unless-stopped
+    cap_add:
+      - NET_ADMIN
+      - SYS_MODULE
+    sysctls:
+      - net.ipv4.ip_forward=1
+      - net.ipv4.conf.all.src_valid_mark=1
+    dns:
+      - 10.2.0.100
+    networks:
+      private_network:
+        ipv4_address: 10.2.0.3
+    environment:
+      - LANG=$lang
+      - WG_HOST=$wg_host
+      - PASSWORD_HASH=$wg_hash
+      - PORT=$port
+      - WG_PORT=$wg_port
+      - WG_CONFIG_PORT=$wg_config_port
+      - WG_DEFAULT_ADDRESS=$wg_default_address
+      - WG_DEFAULT_DNS=$wg_default_dns
+      - WG_MTU=$wg_mtu
+      - WG_ALLOWED_IPS=$wg_allowed_ips
+      - WG_PERSISTENT_KEEPALIVE=$wg_persistent_keepalive
+EOF
+            )
+            [ -n "$wg_pre_up" ] && compose_file+=$(echo -e "\n      - WG_PRE_UP=$wg_pre_up")
+            [ -n "$wg_post_up" ] && compose_file+=$(echo -e "\n      - WG_POST_UP=$wg_post_up")
+            [ -n "$wg_pre_down" ] && compose_file+=$(echo -e "\n      - WG_PRE_DOWN=$wg_pre_down")
+            [ -n "$wg_post_down" ] && compose_file+=$(echo -e "\n      - WG_POST_DOWN=$wg_post_down")
+            compose_file+=$(echo -e "\n      - UI_TRAFFIC_STATS=$ui_traffic_stats")
+            compose_file+=$(echo -e "\n      - UI_CHART_TYPE=$ui_chart_type")
+            compose_file+=$(echo -e "\n      - WG_ENABLE_ONE_TIME_LINKS=$wg_enable_one_time_links")
+            compose_file+=$(echo -e "\n      - UI_ENABLE_SORT_CLIENTS=$ui_enable_sort_clients")
+            compose_file+=$(echo -e "\n      - WG_ENABLE_EXPIRES_TIME=$wg_enable_expires_time")
+            compose_file+=$(echo -e "\n      - ENABLE_PROMETHEUS_METRICS=$enable_prometheus_metrics")
+            [ "$enable_prometheus_metrics" == "true" ] && compose_file+=$(echo -e "\n      - PROMETHEUS_METRICS_PASSWORD=$prometheus_hash")
+            compose_file+=$(cat <<EOF
+
+  adguardhome:
+    image: adguard/adguardhome:latest
+    container_name: adguardhome
+    restart: unless-stopped
+    environment:
+      - TZ=Europe/Moscow
+    volumes:
+      - ./work:/opt/adguardhome/work
+      - $CONF_DIR:/opt/adguardhome/conf
+    networks:
+      private_network:
+        ipv4_address: 10.2.0.100
+
+networks:
+  private_network:
+    ipam:
+      driver: default
+      config:
+        - subnet: 10.2.0.0/24
+EOF
+            )
+            ;;
+        3) # DWG-DARK
+            check_port 51820 "udp"
+            check_port 51821 "tcp"
+            compose_file=$(cat <<EOF
+version: "3.8"
+services:
+  adwireguard:
+    container_name: dwg-agh-wg
+    image: iganesh/adwireguard-dark:v0.108.0-b.50
+    restart: unless-stopped
+    ports:
+      - "51820:51820/udp"
+      - "51821:51821/tcp"
+    environment:
+      - WG_HOST=$MYHOST_IP
+      - PASSWORD_HASH=$(generate_hash "openode")
+      - WG_PORT=51820
+      - WG_DEFAULT_ADDRESS=10.10.10.x
+      - WG_DEFAULT_DNS=10.2.0.100
+      - WG_MTU=1280
+    volumes:
+      - ./work:/opt/adwireguard/work
+      - $CONF_DIR:/opt/adguardhome/conf
+      - ./wireguard:/etc/wireguard
+    cap_add:
+      - NET_ADMIN
+      - SYS_MODULE
+    sysctls:
+      - net.ipv4.ip_forward=1
+      - net.ipv4.conf.all.src_valid_mark=1
+      - net.ipv6.conf.all.disable_ipv6=1
+    networks:
+      vpn_net:
+        ipv4_address: 10.2.0.100
+
+networks:
+  vpn_net:
+    ipam:
+      driver: default
+      config:
+        - subnet: 10.2.0.0/24
+EOF
+            )
+            read -p "Введите логин для AdGuardHome (по умолчанию: admin): " adguard_user
+            adguard_user=${adguard_user:-admin}
+            read -p "Введите пароль для AdGuardHome (по умолчанию: admin): " adguard_password
+            adguard_password=${adguard_password:-admin}
+            adguard_hash=$(htpasswd -nbB "$adguard_user" "$adguard_password" | cut -d ":" -f 2)
+            ;;
+        4) # DWG-A (DWG-Amnezia) с AdGuardHome
+            echo -e "${YELLOW}Ваш внешний IP-адрес: $MYHOST_IP${NC}"
+            read -p "Использовать внешний IP ($MYHOST_IP) или указать свой домен для Amnezia? (ip/domain, по умолчанию: ip): " host_choice
+            host_choice=${host_choice:-ip}
+            if [ "$host_choice" == "domain" ]; then
+                read -p "Введите ваш домен (например, my.domain.com): " wg_host
+                if [ -z "$wg_host" ]; then
+                    echo -e "${RED}Домен не указан, используется внешний IP${NC}"
+                    wg_host=$MYHOST_IP
+                fi
+            else
+                wg_host=$MYHOST_IP
+            fi
+
+            echo -e "${YELLOW}Настройка параметров для DWG-Amnezia:${NC}"
+            read -p "Порт веб-интерфейса (по умолчанию: 51821): " port
+            port=${port:-51821}
+            check_port "$port" "tcp"
+            read -p "Порт WireGuard (по умолчанию: 51820): " wg_port
+            wg_port=${wg_port:-51820}
+            check_port "$wg_port" "udp"
+            read -p "Язык интерфейса (en, ru, tr и т.д., по умолчанию: en): " language
+            language=${language:-en}
+            read -p "Сетевой интерфейс (по умолчанию: eth0): " wg_device
+            wg_device=${wg_device:-eth0}
+            read -p "Шаблон IP-адресов клиентов (по умолчанию: 10.10.0.x): " wg_default_address
+            wg_default_address=${wg_default_address:-10.10.0.x}
+            read -p "DNS-сервер по умолчанию (по умолчанию: 10.2.0.100 для AdGuardHome): " wg_default_dns
+            wg_default_dns=${wg_default_dns:-10.2.0.100}
+            read -p "Разрешенные IP (по умолчанию: 0.0.0.0/0, ::/0): " wg_allowed_ips
+            wg_allowed_ips=${wg_allowed_ips:-"0.0.0.0/0, ::/0"}
+            read -p "Тип аватаров Dicebear (по умолчанию: bottts): " dicebear_type
+            dicebear_type=${dicebear_type:-bottts}
+            read -p "Использовать Gravatar? (true/false, по умолчанию: true): " use_gravatar
+            use_gravatar=${use_gravatar:-true}
+
+            read -p "Введите логин для AdGuardHome (по умолчанию: admin): " adguard_user
+            adguard_user=${adguard_user:-admin}
+            read -p "Введите пароль для AdGuardHome (по умолчанию: admin): " adguard_password
+            adguard_password=${adguard_password:-admin}
+            adguard_hash=$(htpasswd -nbB "$adguard_user" "$adguard_password" | cut -d ":" -f 2)
+            read -p "Введите пароль для веб-интерфейса Amnezia (по умолчанию: amnezia123): " wg_password
+            wg_password=${wg_password:-amnezia123}
+            if [[ ! "$wg_password" =~ ^[[:alnum:]]+$ ]]; then
+                echo -e "${RED}Пароль должен содержать только буквы и цифры${NC}"
+                exit 1
+            fi
+            wg_hash=$(generate_hash "$wg_password")
+            # Создание .env
+            cat <<EOF > "$WORK_DIR/.env"
+WG_HOST=$wg_host
+LANGUAGE=$language
+PORT=$port
+WG_DEVICE=$wg_device
+WG_PORT=$wg_port
+WG_DEFAULT_ADDRESS=$wg_default_address
+WG_DEFAULT_DNS=$wg_default_dns
+WG_ALLOWED_IPS=$wg_allowed_ips
+DICEBEAR_TYPE=$dicebear_type
+USE_GRAVATAR=$use_gravatar
+PASSWORD_HASH=$wg_hash
+EOF
+
+            compose_file=$(cat <<EOF
+version: "3.8"
+volumes:
+  etc_wireguard:
+
+services:
+  amnezia-wg-easy:
+    env_file:
+      - .env
+    image: ghcr.io/w0rng/amnezia-wg-easy
+    container_name: amnezia-wg-easy
+    depends_on: [adguardhome]
+    volumes:
+      - etc_wireguard:/etc/wireguard
+    ports:
+      - "$wg_port:$wg_port/udp"
+      - "$port:$port/tcp"
+    restart: unless-stopped
+    cap_add:
+      - NET_ADMIN
+      - SYS_MODULE
+    sysctls:
+      - net.ipv4.ip_forward=1
+      - net.ipv4.conf.all.src_valid_mark=1
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    dns:
+      - 10.2.0.100
+    networks:
+      private_network:
+        ipv4_address: 10.2.0.3
+
+  adguardhome:
+    image: adguard/adguardhome:latest
+    container_name: adguardhome
+    restart: unless-stopped
+    environment:
+      - TZ=Europe/Moscow
+    volumes:
+      - ./work:/opt/adguardhome/work
+      - $CONF_DIR:/opt/adguardhome/conf
+    networks:
+      private_network:
+        ipv4_address: 10.2.0.100
+
+networks:
+  private_network:
+    ipam:
+      driver: default
+      config:
+        - subnet: 10.2.0.0/24
+EOF
+            )
+            ;;
+        *)
+            echo -e "${RED}Некорректный выбор${NC}"
             exit 1
+            ;;
+    esac
+
+    cat <<EOF > "$CONF_DIR/AdGuardHome.yaml"
+http:
+  pprof:
+    port: 6060
+    enabled: false
+  address: 0.0.0.0:80
+  session_ttl: 720h
+users:
+  - name: $adguard_user
+    password: $adguard_hash
+auth_attempts: 5
+block_auth_min: 15
+http_proxy: ""
+language: ""
+theme: auto
+dns:
+  bind_hosts:
+    - 0.0.0.0
+  port: 53
+  anonymize_client_ip: false
+  ratelimit: 20
+  ratelimit_subnet_len_ipv4: 24
+  ratelimit_subnet_len_ipv6: 56
+  ratelimit_whitelist: []
+  refuse_any: true
+  upstream_dns:
+    - https://cloudflare-dns.com/dns-query
+    - https://dns.adguard-dns.com/dns-query
+    - https://dns.quad9.net/dns-query
+  upstream_dns_file: ""
+  bootstrap_dns:
+    - 9.9.9.10
+    - 149.112.112.10
+    - 2620:fe::10
+    - 2620:fe::fe:10
+  fallback_dns:
+    - https://dns.quad9.net/dns-query
+    - quic://unfiltered.adguard-dns.com
+  upstream_mode: parallel
+  fastest_timeout: 1s
+  allowed_clients: []
+  disallowed_clients: []
+  blocked_hosts:
+    - version.bind
+    - id.server
+    - hostname.bind
+  trusted_proxies:
+    - 127.0.0.0/8
+    - ::1/128
+  cache_size: 4194304
+  cache_ttl_min: 0
+  cache_ttl_max: 0
+  cache_optimistic: false
+  bogus_nxdomain: []
+  aaaa_disabled: false
+  enable_dnssec: false
+  edns_client_subnet:
+    custom_ip: ""
+    enabled: false
+    use_custom: false
+  max_goroutines: 300
+  handle_ddr: true
+  ipset: []
+  ipset_file: ""
+  bootstrap_prefer_ipv6: false
+  upstream_timeout: 10s
+  private_networks: []
+  use_private_ptr_resolvers: false
+  local_ptr_upstreams: []
+  use_dns64: false
+  dns64_prefixes: []
+  serve_http3: false
+  use_http3_upstreams: false
+  serve_plain_dns: true
+  hostsfile_enabled: true
+tls:
+  enabled: false
+  server_name: ""
+  force_https: false
+  port_https: 443
+  port_dns_over_tls: 853
+  port_dns_over_quic: 853
+  port_dnscrypt: 0
+  dnscrypt_config_file: ""
+  allow_unencrypted_doh: false
+  certificate_chain: ""
+  private_key: ""
+  certificate_path: ""
+  private_key_path: ""
+  strict_sni_check: false
+querylog:
+  dir_path: ""
+  ignored: []
+  interval: 24h
+  size_memory: 1000
+  enabled: true
+  file_enabled: true
+statistics:
+  dir_path: ""
+  ignored: []
+  interval: 24h
+  enabled: true
+filters:
+  - enabled: true
+    url: https://adguardteam.github.io/AdGuardSDNSFilter/Filters/filter.txt
+    name: AdGuard DNS filter
+    id: 1
+  - enabled: true
+    url: https://adaway.org/hosts.txt
+    name: AdAway Default Blocklist
+    id: 2
+  - enabled: true
+    url: https://easylist-downloads.adblockplus.org/advblock.txt
+    name: RuAdlist
+    id: 1670584470
+  - enabled: false
+    url: https://easylist-downloads.adblockplus.org/bitblock.txt
+    name: BitBlock
+    id: 1670584471
+  - enabled: true
+    url: https://easylist-downloads.adblockplus.org/cntblock.txt
+    name: cntblock
+    id: 1670584472
+  - enabled: true
+    url: https://easylist-downloads.adblockplus.org/easylist.txt
+    name: easyList
+    id: 1670584473
+  - enabled: false
+    url: https://schakal.ru/hosts/alive_hosts_ru_com.txt
+    name: то же без неотвечающих хостов и доменов вне зон RU, NET и COM
+    id: 1677533164
+  - enabled: true
+    url: https://schakal.ru/hosts/hosts_mail_fb.txt
+    name: файл с разблокированными r.mail.ru и graph.facebook.com
+    id: 1677533165
+  - enabled: true
+    url: https://adguardteam.github.io/HostlistsRegistry/assets/filter_1.txt
+    name: AdGuard DNS filter
+    id: 1726948599
+  - enabled: true
+    url: https://adguardteam.github.io/HostlistsRegistry/assets/filter_59.txt
+    name: AdGuard DNS Popup Hosts filter
+    id: 1726948600
+  - enabled: true
+    url: https://adguardteam.github.io/HostlistsRegistry/assets/filter_27.txt
+    name: OISD Blocklist Big
+    id: 1726948601
+  - enabled: true
+    url: https://adguardteam.github.io/HostlistsRegistry/assets/filter_24.txt
+    name: 1Hosts (Lite)
+    id: 1726948602
+  - enabled: true
+    url: https://adguardteam.github.io/HostlistsRegistry/assets/filter_10.txt
+    name: Scam Blocklist by DurableNapkin
+    id: 1726948603
+  - enabled: true
+    url: https://adguardteam.github.io/HostlistsRegistry/assets/filter_11.txt
+    name: Malicious URL Blocklist (URLHaus)
+    id: 1726948604
+  - enabled: true
+    url: https://adguardteam.github.io/HostlistsRegistry/assets/filter_50.txt
+    name: uBlock₀ filters – Badware risks
+    id: 1726948605
+whitelist_filters: []
+user_rules: []
+dhcp:
+  enabled: false
+  interface_name: ""
+  local_domain_name: lan
+  dhcpv4:
+    gateway_ip: ""
+    subnet_mask: ""
+    range_start: ""
+    range_end: ""
+    lease_duration: 86400
+    icmp_timeout_msec: 1000
+    options: []
+  dhcpv6:
+    range_start: ""
+    lease_duration: 86400
+    ra_slaac_only: false
+    ra_allow_slaac: false
+filtering:
+  blocking_ipv4: ""
+  blocking_ipv6: ""
+  blocked_services:
+    schedule:
+      time_zone: America/Los_Angeles
+    ids: []
+  protection_disabled_until: null
+  safe_search:
+    enabled: false
+    bing: true
+    duckduckgo: true
+    google: true
+    pixabay: true
+    yandex: true
+    youtube: true
+  blocking_mode: default
+  parental_block_host: family-block.dns.adguard.com
+  safebrowsing_block_host: standard-block.dns.adguard.com
+  rewrites: []
+  safebrowsing_cache_size: 1048576
+  safesearch_cache_size: 1048576
+  parental_cache_size: 1048576
+  cache_time: 30
+  filters_update_interval: 24
+  blocked_response_ttl: 10
+  filtering_enabled: true
+  parental_enabled: false
+  safebrowsing_enabled: false
+  protection_enabled: true
+clients:
+  runtime_sources:
+    whois: true
+    arp: true
+    rdns: true
+    dhcp: true
+    hosts: true
+  persistent: []
+log:
+  enabled: true
+  file: ""
+  max_backups: 0
+  max_size: 100
+  max_age: 3
+  compress: false
+  local_time: false
+  verbose: false
+os:
+  group: ""
+  user: ""
+  rlimit_nofile: 0
+schema_version: 28
+EOF
+
+    echo "$compose_file" > "$WORK_DIR/docker-compose.yml"
+    docker compose up -d
+    echo -e "${GREEN}Установка завершена${NC}"
+    show_info
+}
+
+# Функция вывода информации после установки
+show_info() {
+    VERSION=$(get_dwg_version)
+    case $VERSION in
+        cli)
+            echo -e "${BLUE}Для управления WireGuard: 'dwg peers' или 'docker exec -it wireguard wg'${NC}"
+            echo -e "${BLUE}AdGuardHome доступен через VPN: http://10.2.0.100${NC}"
+            echo -e "${GREEN}Логин AdGuardHome: $adguard_user${NC}"
+            echo -e "${GREEN}Пароль AdGuardHome: $adguard_password${NC}"
+            ;;
+        ui)
+            echo -e "${BLUE}Веб-интерфейс WireGuard: http://$wg_host:$port${NC}"
+            echo -e "${GREEN}Пароль WG-EASY: $wg_password${NC}"
+            echo -e "${BLUE}AdGuardHome доступен через VPN: http://10.2.0.100${NC}"
+            echo -e "${GREEN}Логин AdGuardHome: $adguard_user${NC}"
+            echo -e "${GREEN}Пароль AdGuardHome: $adguard_password${NC}"
+            ;;
+        dark)
+            echo -e "${BLUE}Веб-интерфейс WireGuard: http://$MYHOST_IP:51821${NC}"
+            echo -e "${GREEN}Пароль wg-easy: openode${NC}"
+            echo -e "${BLUE}AdGuardHome через VPN: http://10.2.0.100${NC}"
+            echo -e "${GREEN}Логин AdGuardHome: $adguard_user${NC}"
+            echo -e "${GREEN}Пароль AdGuardHome: $adguard_password${NC}"
+            ;;
+        amnezia)
+            echo -e "${BLUE}Веб-интерфейс Amnezia WireGuard: http://$wg_host:$port${NC}"
+            echo -e "${GREEN}Пароль WG-EASY: $wg_password${NC}"
+            echo -e "${BLUE}AdGuardHome доступен через VPN: http://10.2.0.100${NC}"
+            echo -e "${GREEN}Логин AdGuardHome: $adguard_user${NC}"
+            echo -e "${GREEN}Пароль AdGuardHome: $adguard_password${NC}"
+            ;;
+    esac
+}
+
+
+# Функция для удаления конфигурации AdGuardHome и перезапуска контейнера
+reset_adguard_config() {
+    if [ -f "$CONF_DIR/AdGuardHome.yaml" ]; then
+        echo -e "${YELLOW}Вы уверены, что хотите удалить файл конфигурации AdGuardHome? Это сбросит все настройки! (y/n): ${NC}"
+        read confirm
+        if [ "$confirm" == "y" ]; then
+            echo -e "${GREEN}Удаление файла $CONF_DIR/AdGuardHome.yaml...${NC}"
+            rm -f "$CONF_DIR/AdGuardHome.yaml"
+            if [ $? -eq 0 ]; then
+                echo -e "${GREEN}Файл успешно удален${NC}"
+            else
+                echo -e "${RED}Ошибка при удалении файла${NC}"
+                exit 1
+            fi
+
+            # Проверка существования docker-compose.yml
+            if [ -f "$WORK_DIR/docker-compose.yml" ]; then
+                echo -e "${GREEN}Перезапуск контейнера AdGuardHome...${NC}"
+                VERSION=$(get_dwg_version)
+                if [ "$VERSION" == "dark" ]; then
+                    docker compose -f "$WORK_DIR/docker-compose.yml" restart adwireguard
+                else
+                    docker compose -f "$WORK_DIR/docker-compose.yml" restart adguardhome
+                fi
+                if [ $? -eq 0 ]; then
+                    echo -e "${GREEN}Контейнер AdGuardHome перезапущен${NC}"
+                else
+                    echo -e "${RED}Ошибка при перезапуске контейнера${NC}"
+                    exit 1
+                fi
+
+                # Инструкции после сброса
+                echo -e "\n${YELLOW}Конфигурация AdGuardHome сброшена. Что делать дальше:${NC}"
+                echo -e "1. ${GREEN}Подключитесь к сети WireGuard${NC}, используя конфигурацию вашего клиента."
+                echo -e "   - Если вы используете DWG-CLI, сгенерируйте конфигурацию с помощью 'dwg peers'."
+                echo -e "   - Для других версий (UI, DARK, A) используйте веб-интерфейс WireGuard для создания клиента."
+                echo -e "2. ${GREEN}Откройте браузер и перейдите по адресу:${NC} http://10.2.0.100"
+                echo -e "   - Это внутренний IP-адрес AdGuardHome, доступный через VPN."
+                echo -e "3. ${GREEN}Выполните стандартную настройку AdGuardHome через веб-интерфейс:${NC}"
+                echo -e "   - Укажите логин и пароль (по умолчанию после сброса: admin/admin)."
+                echo -e "   - Настройте DNS-серверы (например, upstream DNS: https://cloudflare-dns.com/dns-query)."
+                echo -e "   - Сохраните настройки и проверьте подключение."
+                echo -e "${YELLOW}Примечание:${NC} Если проблемы с DNS сохраняются, убедитесь, что WireGuard работает корректно."
+            else
+                echo -e "${RED}Файл docker-compose.yml не найден, контейнер не перезапущен${NC}"
+            fi
+        else
+            echo -e "${GREEN}Действие отменено${NC}"
         fi
     else
-        printf "Порт 51821 свободен.\n"
-        printf "Хотите продолжить установку? (y/n): "
-        read -r choice
-        case "$choice" in 
-          y|Y ) printf "Продолжаем установку...\n" ;;
-          n|N ) printf "Установка остановлена.${NC}" ; exit 1;;
-          * ) printf "${RED}Некорректный ввод. Установка остановлена.${NC}" ; exit 1;;
-        esac
+        echo -e "${RED}Файл $CONF_DIR/AdGuardHome.yaml не найден${NC}"
+        echo -e "${YELLOW}Если установка DWG не завершилась из-за проблем с DNS, выполните 'dwg install' заново после проверки сети.${NC}"
     fi
-fi
+}
 
-printf "${GREEN} Этап проверки докера закончен, можно продолжить установку\n${NC}"
+# Функция управления пирами (CLI версия)
+manage_peers() {
+    wg_conf_path="$WORK_DIR/wireguard/wg_confs/wg0.conf"
+    if [ ! -f "$wg_conf_path" ]; then
+        echo -e "${RED}Файл конфигурации $wg_conf_path не найден${NC}"
+        exit 1
+    fi
 
-# Получаем внешний IP-адрес
-MYHOST_IP=$(curl -s https://checkip.amazonaws.com/) 
+    peers=$(grep -oP '(?<=#).*$' "$wg_conf_path" | nl)
+    echo -e "${YELLOW}Список пиров в файле конфигурации $wg_conf_path:${NC}"
+    echo "$peers"
 
-# Записываем IP-адрес в файл docker-compose.yml с меткой MYHOSTIP
-sed -i -E  "s/- WG_HOST=.*/- WG_HOST=$MYHOST_IP/g" docker-compose.yml
+    echo -en "${YELLOW}Введите номер пира: ${NC}"
+    read peer_number
 
-# Запросите у пользователя пароль
-echo ""
-echo ""
-#while true; do
-#  read -p "Введите пароль для веб-интерфейса: " WEBPASSWORD
-#  echo ""
+    peer=$(echo "$peers" | awk -v n="$peer_number" '$1 == n {print $2}')
+    if [ -z "$peer" ]; then
+        echo -e "${RED}Пир с номером $peer_number не найден${NC}"
+        exit 1
+    fi
 
-# if [[ "$WEBPASSWORD" =~ ^[[:alnum:]]+$ ]]; then
-#    # Записываем в файл новый пароль в кодировке UTF-8
-#    sed -i -E "s/- PASSWORD=.*/- PASSWORD=$WEBPASSWORD/g" docker-compose.yml
-#    break
-#  else
-#    echo "Пароль должен состоять только из английских букв и цифр, без пробелов и специальных символов."
-#  fi
-#done
-echo -e "Введите пароль для веб-интерфейса (если пропустить, по умолчанию будет задан openode) "
-read -p "Требования к паролю: Пароль может содержать только цифры и английские символы: " WEBPASSWORD || WEBPASSWORD="openode"
-echo ""
-
-if [[ "$WEBPASSWORD" =~ ^[[:alnum:]]+$ ]]; then
-  # Записываем в файл новый пароль в кодировке UTF-8
-  sed -i -E "s/- PASSWORD=.*/- PASSWORD=$WEBPASSWORD/g" docker-compose.yml
-else
-  echo "Пароль должен состоять только из английских букв и цифр, без пробелов и специальных символов."
-fi
-
-
-# Даем пользователю информацию по установке
-# Читаем текущие значения из файла docker-compose.yml
-CURRENT_PASSWORD=$(grep PASSWORD docker-compose.yml | cut -d= -f2)
-CURRENT_WG_HOST=$(grep WG_HOST docker-compose.yml | cut -d= -f2)
-CURRENT_WG_DEFAULT_ADDRESS=$(grep WG_DEFAULT_ADDRESS docker-compose.yml | cut -d= -f2)
-CURRENT_WG_DEFAULT_DNS=$(grep WG_DEFAULT_DNS docker-compose.yml | cut -d= -f2)
-
-
-# Выводим текущие значения
-echo ""
-echo -e "${BLUE}Текущие значения:${NC}"
-echo ""
-echo -e "Пароль от веб-интерфейса: ${BLUE}$CURRENT_PASSWORD${NC}"
-echo -e "IP адрес сервера: ${BLUE}$CURRENT_WG_HOST${NC}"
-echo -e "Маска пользовательских IP: ${BLUE}$CURRENT_WG_DEFAULT_ADDRESS${NC}"
-echo -e "Адрес входа в веб-интерфейс WireGuard после установки: ${YELLOW}http://$CURRENT_WG_HOST:51821${NC}"
-echo ""
-
- #### ЗДЕСЬ КОНЕЦ КОДА
-  #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####   #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### 
-    #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####   #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### 
-      #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####   #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### 
-        #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####   #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### 
-          #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####   #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### 
-          
-elif [[ "$dwg_set" == "3" ]]; then  #DWG-DARK
-  # Проверяем, существует ли файл docker-compose.yml
-  if [[ -f "docker-compose.yml" ]]; then
-    # Если файл существует, предлагаем пользователю переименовать его
-    printf "Файл docker-compose.yml уже существует. Хотите переименовать его в docker-compose.yml.old? (y/n)\n"
-    read -r rename_response
-    if [[ "$rename_response" == "y" ]]; then
-      mv docker-compose.yml docker-compose.yml.old.$((100 + RANDOM % 2900))
+    peer_conf_path="$WORK_DIR/wireguard/$peer/$peer.conf"
+    if [ -f "$peer_conf_path" ]; then
+        echo -e "${BLUE}Содержимое файла конфигурации $peer_conf_path:${NC}"
+        echo -e "${GREEN}Создайте файл peer.conf с этим содержимым и импортируйте в WireGuard${NC}"
+        echo -e "${YELLOW}=========================================${NC}"
+        cat "$peer_conf_path"
+        echo -e "${YELLOW}=========================================${NC}"
+        echo -e "${BLUE}QR-код для подключения:${NC}"
+        qrencode -t ansiutf8 < "$peer_conf_path"
     else
-      exit 1
+        echo -e "${RED}Файл конфигурации $peer_conf_path не найден${NC}"
     fi
-  fi
+    echo -e "${YELLOW}https://openode.ru${NC}"
+}
 
-  #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####   #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### 
-    #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####   #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### 
-      #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####   #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### 
-        #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####   #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### 
-          #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####   #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### 
-            #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####   #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### 
- #### ЗДЕСЬ КОД ДЛЯ УСТАНОВКИ DWG-DARK
-# Проверяем есть ли контейнер с именем wireguard
+# Функция статуса
+status() {
+    if [ -f "$WORK_DIR/docker-compose.yml" ]; then
+        echo -e "\e[48;5;202m\e[30m ================================ \e[0m"
+        echo -e "\e[48;5;202m\e[30m          DWG Service Status      \e[0m"
+        echo -e "\e[48;5;202m\e[30m ================================ \e[0m"
+        VERSION=$(get_dwg_version)
+        echo -e "${GREEN}Installed Version:${NC} $VERSION"
 
-printf "${BLUE} Сейчас проверим свободен ли порт 51821 и не установлен ли другой wireguard.\n${NC}"
-
-if [[ $(docker ps -q --filter "name=wireguard") ]]; then
-    printf "!!!!>>> Другой Wireguard контейнер уже запущен, и вероятно занимает порт 51821. Пожалуйста удалите его и запустите скрипт заново\n "
-    printf "${RED} !!!!>>> Завершаю скрипт! \n${NC}"
-    exit 1
-else
-    printf "Wireguard контейнер не запущен в докер. Можно продолжать\n"
-    # Проверка, запущен ли контейнер, использующий порт 51821
-    if lsof -Pi :51821 -sTCP:LISTEN -t >/dev/null ; then
-        printf "${RED}!!!!>>> Порт 51821 уже используется контейнером.!\n ${NC}"
-        if docker ps --format '{{.Names}} {{.Ports}}' | grep -q "wg-easy.*:51821->" ; then
-            printf "WG-EASY контейнер использует порт 51821. Хотите продолжить установку? (y/n): "
-            read -r choice
-            case "$choice" in 
-              y|Y ) printf "Продолжаем установку...\n" ;;
-              n|N ) printf "${RED} ******* Завершаю скрипт!\n ${NC}" ; exit 1;;
-              * ) printf "${RED}Некорректный ввод. Установка остановлена.${NC}" ; exit 1;;
-            esac
+        STATUS=$(docker compose -f "$WORK_DIR/docker-compose.yml" ps --format "{{.Name}} {{.Image}} {{.Status}} {{.Ports}}")
+        if [ -z "$STATUS" ]; then
+            echo -e "${RED}No containers running${NC}"
         else
-            printf "${RED} ******* Завершаю скрипт!\n ${NC}"
+            echo -e "${GREEN}Containers:${NC}"
+            echo "$STATUS" | while IFS= read -r line; do
+                NAME=$(echo "$line" | awk '{print $1}')
+                IMAGE=$(echo "$line" | awk '{print $2}')
+                STATUS=$(echo "$line" | awk '{print $3}')
+                PORTS=$(echo "$line" | awk '{$1=$2=$3=""; print substr($0, index($0,$3)+length($3)+1)}')
+                echo -e "  - ${BLUE}$NAME${NC}: $IMAGE - $STATUS"
+                [ -n "$PORTS" ] && echo -e "    ${YELLOW}Ports:${NC} $PORTS"
+            done
+        fi
+
+        echo -e "${GREEN}Node IP:${NC} $MYHOST_IP"
+        echo -e "${GREEN}Config Path:${NC} $CONF_DIR/AdGuardHome.yaml"
+        if [ "$VERSION" == "ui" ] || [ "$VERSION" == "dark" ] || [ "$VERSION" == "amnezia" ]; then
+            echo -e "${GREEN}WireGuard Web UI:${NC} http://$MYHOST_IP:$port"
+        fi
+        if [ "$VERSION" != "unknown" ]; then
+            echo -e "${GREEN}AdGuardHome:${NC} http://10.2.0.100 (via VPN)"
+        fi
+        echo -e "\e[48;5;202m\e[30m ================================ \e[0m"
+    else
+        echo -e "${RED}Контейнеры не установлены${NC}"
+    fi
+}
+
+# Новые функции
+up() {
+    if [ -f "$WORK_DIR/docker-compose.yml" ]; then
+        echo -e "${GREEN}Запуск сервисов...${NC}"
+        docker compose -f "$WORK_DIR/docker-compose.yml" up -d
+        echo -e "${GREEN}Сервисы запущены${NC}"
+    else
+        echo -e "${RED}Контейнеры не установлены${NC}"
+    fi
+}
+
+down() {
+    if [ -f "$WORK_DIR/docker-compose.yml" ]; then
+        echo -e "${GREEN}Остановка сервисов...${NC}"
+        docker compose -f "$WORK_DIR/docker-compose.yml" down
+        echo -e "${GREEN}Сервисы остановлены${NC}"
+    else
+        echo -e "${RED}Контейнеры не установлены${NC}"
+    fi
+}
+
+logs() {
+    if [ -f "$WORK_DIR/docker-compose.yml" ]; then
+        echo -e "${GREEN}Логи сервисов:${NC}"
+        docker compose -f "$WORK_DIR/docker-compose.yml" logs --tail=50
+    else
+        echo -e "${RED}Контейнеры не установлены${NC}"
+    fi
+}
+
+edit() {
+    if [ -f "$WORK_DIR/docker-compose.yml" ]; then
+        nano "$WORK_DIR/docker-compose.yml"
+    else
+        echo -e "${RED}Файл docker-compose.yml не найден${NC}"
+    fi
+}
+
+update() {
+    echo -e "${GREEN}Обновление DWG до последней версии...${NC}"
+    wget -qO /usr/local/bin/dwg "$SCRIPT_URL"
+    chmod +x /usr/local/bin/dwg
+    if [ -s /usr/local/bin/dwg ]; then
+        echo -e "${GREEN}Скрипт обновлен${NC}"
+        echo -e "${YELLOW}Перезапустите контейнеры с помощью 'dwg restart' для применения обновлений${NC}"
+    else
+        echo -e "${RED}Ошибка при обновлении скрипта${NC}"
+    fi
+}
+
+version() {
+    echo -e "${GREEN}Текущая версия DWG:${NC} $(get_dwg_version)"
+    echo -e "${YELLOW}Скрипт версии: beta2${NC}"
+}
+
+# Основная логика обработки команд
+case "$1" in
+    script-install) script_install ;;
+    status) status ;;
+    reset-adguard-config) reset_adguard_config ;; 
+    install) install_dwg ;;
+    uninstall)
+        if [ -f "$WORK_DIR/docker-compose.yml" ]; then
+            echo -e "${YELLOW}Вы уверены, что хотите удалить DWG? (y/n): ${NC}"
+            read confirm1
+            if [ "$confirm1" != "y" ]; then
+                echo -e "${GREEN}Удаление отменено${NC}"
+                exit 0
+            fi
+            echo -e "${YELLOW}Подтвердите удаление DWG еще раз (y/n): ${NC}"
+            read confirm2
+            if [ "$confirm2" != "y" ]; then
+                echo -e "${GREEN}Удаление отменено${NC}"
+                exit 0
+            fi
+            echo -e "${GREEN}Удаление контейнеров и томов...${NC}"
+            docker compose -f "$WORK_DIR/docker-compose.yml" down -v
+            echo -e "${YELLOW}Удалить папку $WORK_DIR полностью? (y/n): ${NC}"
+            read remove_dir
+            if [ "$remove_dir" == "y" ]; then
+                rm -rf "$WORK_DIR"
+                echo -e "${GREEN}Папка $WORK_DIR удалена${NC}"
+            else
+                rm -f "$WORK_DIR/docker-compose.yml"
+                echo -e "${GREEN}Только docker-compose.yml удален, папка $WORK_DIR сохранена${NC}"
+            fi
+            echo -e "${GREEN}Удаление завершено${NC}"
+        else
+            echo -e "${RED}Нечего удалять${NC}"
+        fi
+        ;;
+    restart)
+        if [ -f "$WORK_DIR/docker-compose.yml" ]; then
+            echo -e "${GREEN}Перезапуск контейнеров...${NC}"
+            docker compose -f "$WORK_DIR/docker-compose.yml" restart
+            echo -e "${GREEN}Перезапуск завершен${NC}"
+        else
+            echo -e "${RED}Контейнеры не установлены${NC}"
+        fi
+        ;;
+    up) up ;;
+    down) down ;;
+    logs) logs ;;
+    change-password)
+        VERSION=$(get_dwg_version)
+        if [ "$VERSION" == "unknown" ]; then
+            echo -e "${RED}Не удалось определить версию DWG${NC}"
             exit 1
         fi
-    else
-        printf "Порт 51821 свободен.\n"
-        printf "Хотите продолжить установку? (y/n): "
-        read -r choice
-        case "$choice" in 
-          y|Y ) printf "Продолжаем установку...\n" ;;
-          n|N ) printf "Установка остановлена.${NC}" ; exit 1;;
-          * ) printf "${RED}Некорректный ввод. Установка остановлена.${NC}" ; exit 1;;
-        esac
-    fi
-fi
-
-printf "${GREEN} Этап проверки докера закончен, можно продолжить установку\n${NC}"
-
-#  printf "Для корректной работы данной сборки необходимо освободить 53 порт. Сделать это автоматическим скриптом? Гарантий работоспособности на вашей операционной системе мы не даем!!! (Y/n) (по умолчанию - Y, можете нажать Enter): "
-#read choice_resolv
-
-#  if [[ $choice_resolv == "" || $choice_resolv == "Y" || $choice_resolv == "y" ]]; then
-
-    #printf "\e[42mДля корректной работы сборки DWG-DARK запустите скрипт {RED}./dwg/53getfree.sh \e[42m (будет выполнена перезагрузка)\e[0m\n"
-    #printf "\e[42mЕсли вы это уже сделали, подождите просто 5 секунд  и установка продолжится.\e[0m\n"
-    #sleep 5
-
-  #else
-  #  printf "Скрипт не будет запущен.\n"
-  #  exit 1
-  #fi
-
-
-  # Переименовываем файл docker-compose.yml.UI в docker-compose.yml
-  mv docker-compose.yml.DARK docker-compose.yml
-  printf "Файл docker-compose.yml.DARK успешно переименован в docker-compose.yml\n"
-  
-# Получаем внешний IP-адрес
-MYHOST_IP=$(curl -s https://checkip.amazonaws.com/) 
-
-# Записываем IP-адрес в файл docker-compose.yml с меткой MYHOSTIP
-sed -i -E  "s/- WG_HOST=.*/- WG_HOST=$MYHOST_IP/g" docker-compose.yml
-
-# Запросите у пользователя пароль
-echo ""
-echo ""
-
-echo -e "Введите пароль для веб-интерфейса (если пропустить, по умолчанию будет задан openode) "
-read -p "Требования к паролю: Пароль может содержать только цифры и английские символы: " WEBPASSWORD || WEBPASSWORD="openode"
-echo ""
-
-if [[ "$WEBPASSWORD" =~ ^[[:alnum:]]+$ ]]; then
-  # Записываем в файл новый пароль в кодировке UTF-8
-  sed -i -E "s/- PASSWORD=.*/- PASSWORD=$WEBPASSWORD/g" docker-compose.yml
-else
-  echo "Пароль должен состоять только из английских букв и цифр, без пробелов и специальных символов."
-fi
-
-
-# Даем пользователю информацию по установке
-# Читаем текущие значения из файла docker-compose.yml
-CURRENT_PASSWORD=$(grep PASSWORD docker-compose.yml | cut -d= -f2)
-CURRENT_WG_HOST=$(grep WG_HOST docker-compose.yml | cut -d= -f2)
-CURRENT_WG_DEFAULT_ADDRESS=$(grep WG_DEFAULT_ADDRESS docker-compose.yml | cut -d= -f2)
-CURRENT_WG_DEFAULT_DNS=$(grep WG_DEFAULT_DNS docker-compose.yml | cut -d= -f2)
-
-
-# Выводим текущие значения
-echo ""
-echo -e "${BLUE}Текущие значения:${NC}"
-echo ""
-echo -e "Пароль от веб-интерфейса: ${BLUE}$CURRENT_PASSWORD${NC}"
-echo -e "IP адрес сервера: ${BLUE}$CURRENT_WG_HOST${NC}"
-echo -e "Маска пользовательских IP: ${BLUE}$CURRENT_WG_DEFAULT_ADDRESS${NC}"
-echo -e "Адрес входа в веб-интерфейс WireGuard после установки: ${YELLOW}http://$CURRENT_WG_HOST:51821${NC}"
-echo ""
-
- #### ЗДЕСЬ КОНЕЦ КОДА
-  #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####   #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### 
-    #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####   #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### 
-      #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####   #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### 
-        #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####   #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### 
-          #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### ####   #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### #### 
-else
-  # Если пользователь ввел что-то кроме 1 или 2 или 3, выводим ошибку
-  printf "Ошибка: некорректный ввод\n"
-  exit 1
-fi
-
-
-# Устанавливаем apache2-utils, если она не установлена
-if ! [ -x "$(command -v htpasswd)" ]; then
-  echo -e "${RED}Установка apache2-utils...${NC}" >&2
-   apt-get update
-   apt-get install apache2-utils -y
-fi
-
-
-# Если логин не введен, устанавливаем логин по умолчанию "admin"
-while true; do
-  echo -e "${YELLOW}Введите логин (только латинские буквы и цифры), если пропустить шаг будет задан логин admin:${NC}"  
-  read username
-  if [ -z "$username" ]; then
-    username="admin"
-    break
-  fi
-  if ! [[ "$username" =~ [^a-zA-Z0-9] ]]; then
-    break
-  else
-    echo -e "${RED}Логин должен содержать только латинские буквы и цифры.${NC}"
-  fi
-done
-
-# Запрашиваем у пользователя пароль
-while true; do
-  echo -e "${YELLOW}Введите пароль (если нажать Enter, пароль будет задан по умолчанию admin):${NC}"  
-  read password
-  if [ -z "$password" ]; then
-    password="admin"
-    break
-  fi
-  if ! [[ "$password" =~ [^a-zA-Z0-9] ]]; then
-    break
-  else
-    echo -e "${RED}Пароль должен содержать латинские буквы верхнего и нижнего регистра, цифры.${NC}"
-  fi
-done
-
-# Генерируем хеш пароля с помощью htpasswd из пакета apache2-utils
-hashed_password=$(htpasswd -nbB $username "$password" | cut -d ":" -f 2)
-
-# Экранируем символы / и & в hashed_password
-hashed_password=$(echo "$hashed_password" | sed -e 's/[\/&]/\\&/g')
-
-# Проверяем наличие файла AdGuardHome.yaml и его доступность для записи
-if [ ! -w "conf/AdGuardHome.yaml" ]; then
-  echo -e "${RED}Файл conf/AdGuardHome.yaml не существует или не доступен для записи.${NC}" >&2
-  exit 1
-fi
-
-# Записываем связку логина и зашифрованного пароля в файл conf/AdGuardHome.yaml
-if 
-  sed -i -E "s/- name: .*/- name: $username/g" conf/AdGuardHome.yaml &&
-  sed -i -E "s/password: .*/password: $hashed_password/g" conf/AdGuardHome.yaml
-then
-  # Выводим сообщение об успешной записи связки логина и пароля в файл
-  echo -e "${GREEN}Связка логина и пароля успешно записана в файл conf/AdGuardHome.yaml${NC}"
-else
-  echo -e "${RED}Не удалось записать связку логина и пароля в файл conf/AdGuardHome.yaml.${NC}" >&2
-  exit 1
-fi
-
-
-
-
-# Запускаем docker-compose
-docker-compose up -d
-
-# Проверяем, что пользователь ввел 1 или 2
-if [[ "$dwg_set" == "2" ]]; then
-  echo ""
-  echo -e "${BLUE}Текущие значения:${NC}"
-  echo ""
-  echo -e "Пароль от веб-интерфейса: ${BLUE}$CURRENT_PASSWORD${NC}"
-  echo -e "IP адрес сервера: ${BLUE}$CURRENT_WG_HOST${NC}"
-  echo -e "Маска пользовательских IP: ${BLUE}$CURRENT_WG_DEFAULT_ADDRESS${NC}"
-  echo -e "Адрес входа в веб-интерфейс WireGuard после установки: ${YELLOW}http://$CURRENT_WG_HOST:51821${NC}"
-  echo ""
-  printf '\e[48;5;202m\e[30m ################################################################## \e[0m\n'
-  printf '\e[48;5;202m\e[30m Не забудь отдельно установить UFW-Docker, для закрытия веб-интерфейса wireguard. \e[0m\n'
-  printf '\e[48;5;196m\e[97m ВНИМАНИЕ! Запускать только после того как создадите для себя клиента в WireGUARD!!! \e[0m\n'
-  printf '\e[48;5;202m\e[30m команда для установки: ./dwg/tools/ufw-docker.sh \e[0m\n'
-  printf '\e[48;5;202m\e[30m ################################################################## \e[0m\n'
-  
-  printf "Хотите запустить скрипт wg-ru.sh для русификации и модернизации интерфейса?? (Y/n) (по умолчанию - Y, можете нажать Enter): "
-read choice_ru
-
-  if [[ $choice_ru == "" || $choice_ru == "Y" || $choice_ru == "y" ]]; then
-    ./tools/wg-ru.sh
-  else
-    printf "Скрипт не будет запущен.\n"
-  fi
-
-fi
-
-
-
-if [[ "$dwg_set" == "3" ]]; then
-  echo ""
-  echo -e "${BLUE}Текущие значения DWG:${NC}"
-  echo ""
-  echo -e "Пароль от веб-интерфейса: ${BLUE}$CURRENT_PASSWORD${NC}"
-  echo -e "IP адрес сервера: ${BLUE}$CURRENT_WG_HOST${NC}"
-  echo -e "Маска пользовательских IP: ${BLUE}$CURRENT_WG_DEFAULT_ADDRESS${NC}"
-  echo -e "Адрес входа в веб-интерфейс WireGuard после установки: ${YELLOW}http://$CURRENT_WG_HOST:51821${NC}"
-  echo ""
-  printf '\e[48;5;202m\e[30m ################################################################## \e[0m\n'
-  printf '\e[48;5;202m\e[30m Не забудь отдельно установить UFW-Docker, для закрытия веб-интерфейса wireguard. \e[0m\n'
-  printf '\e[48;5;196m\e[97m ВНИМАНИЕ! Запускать только после того как создадите для себя клиента в WireGUARD!!! \e[0m\n'
-  printf '\e[48;5;202m\e[30m команда для установки: ./dwg/tools/ufw-docker.sh \e[0m\n'
-  printf '\e[48;5;202m\e[30m ################################################################## \e[0m\n'
-  
-  printf "Хотите запустить скрипт wg-ru-d.sh для русификации и модернизации интерфейса?? (Y/n) (по умолчанию - Y, можете нажать Enter): "
-read choice_ru
-
-  if [[ $choice_ru == "" || $choice_ru == "Y" || $choice_ru == "y" ]]; then
-    ./tools/wg-ru-d.sh
-  else
-    printf "Скрипт не будет запущен.\n"
-  fi
-
-fi
-
-if [[ "$dwg_set" == "1" ]]; then
-  echo ""
-  echo -e "${BLUE}Для получения списка Пиров и данных по их подключению, воспользуйтесь командой {RED}cd dwg && ./peer.sh${NC}"
-  echo -e "${BLUE}(Запуск производится из папки dwg скрипта ./peer.sh)${NC}"
-fi
-# Выводим связку логина и пароля в консоль
-echo -e "Адрес входа в веб-интерфейс AdGuardHome после установки (только когда подключитесь к сети WireGuard!!!): ${BLUE}http://10.2.0.100${NC}"
-echo "Ниже представлены логин и пароль для входа в AdGuardHome"
-echo -e "${GREEN}Логин: $username${NC}"
-echo -e "${GREEN}Пароль: $password${NC}"
-
-# Запрашиваем у пользователя, хочет ли он поменять пароль для SSH
-printf "Вы хотите поменять порт для SSH? (y/n): "
-read ssh_answer
-
-# Если пользователь отвечает "y" или "Y", запускаем скрипт для изменения порта
-if [[ "$ssh_answer" == "y" || "$ssh_answer" == "Y" ]]; then
-  # Запуск скрипта ssh.sh
-  printf "\e[42mЗапуск скрипта ssh.sh для смены стандартного порта SSH...\e[0m\n"
-  ./tools/ssh.sh
-  printf "\e[42mСкрипт ssh.sh успешно выполнен.\e[0m\n"
-fi
-
-# Запрашиваем у пользователя, хочет ли установить UFW Firewall
-printf "Вы хотите установить UFW Firewall? (y/n): "
-read ufw_answer
-
-# Если пользователь отвечает "y" или "Y", запускаем скрипт для изменения пароля
-if [[ "$ufw_answer" == "y" || "$ufw_answer" == "Y" ]]; then
-  # Запуск скрипта ufw.sh
-  printf "\e[42mЗапуск скрипта ufw.sh для установки UFW Firewall...\e[0m\n"
-  ./tools/ufw.sh
-  printf "\e[42mСкрипт ufw.sh успешно выполнен.\e[0m\n"
-fi
-printf '\e[48;5;202m\e[30m Если вам понравился мой скрипт, вы можете меня отблагодарить суммой на ваше усмотрение: https://yoomoney.ru/to/41001707910216 \e[0m\n'
-# Переходим в папку /
-printf "\e[42mПереходим в папку /root/...\e[0m\n"
-cd
-printf "\e[42mПерешли в папку /root/ \e[0m\n"
+        if [ "$VERSION" == "ui" ] || [ "$VERSION" == "dark" ]; then
+            echo -en "${YELLOW}Введите новый пароль для wg-easy: ${NC}"
+            read -s new_password
+            echo
+            hash=$(generate_hash "$new_password")
+            sed -i "s/PASSWORD_HASH=.*/PASSWORD_HASH=$hash/" "$WORK_DIR/docker-compose.yml"
+            docker compose -f "$WORK_DIR/docker-compose.yml" restart
+            echo -e "${GREEN}Пароль для wg-easy обновлен${NC}"
+        fi
+        if [ "$VERSION" == "ui" ] || [ "$VERSION" == "dark" ] || [ "$VERSION" == "cli" ]; then
+            echo -en "${YELLOW}Введите новый логин для AdGuardHome (Enter для сохранения текущего): ${NC}"
+            read new_adguard_user
+            echo -en "${YELLOW}Введите новый пароль для AdGuardHome: ${NC}"
+            read -s new_adguard_password
+            echo
+            if [ -n "$new_adguard_user" ] || [ -n "$new_adguard_password" ]; then
+                new_adguard_user=${new_adguard_user:-$(grep "name:" "$CONF_DIR/AdGuardHome.yaml" | awk '{print $2}')}
+                new_adguard_password=${new_adguard_password:-$(grep "password:" "$CONF_DIR/AdGuardHome.yaml" | awk '{print $2}')}
+                adguard_hash=$(htpasswd -nbB "$new_adguard_user" "$new_adguard_password" | cut -d ":" -f 2)
+                sed -i "s/name: .*/name: $new_adguard_user/" "$CONF_DIR/AdGuardHome.yaml"
+                sed -i "s/password: .*/password: $adguard_hash/" "$CONF_DIR/AdGuardHome.yaml"
+                docker compose -f "$WORK_DIR/docker-compose.yml" restart adguardhome 2>/dev/null || docker compose -f "$WORK_DIR/docker-compose.yml" restart adwireguard
+                echo -e "${GREEN}Пароль для AdGuardHome обновлен${NC}"
+            fi
+        fi
+        if [ "$VERSION" == "cli" ] && [ -z "$new_adguard_user" ] && [ -z "$new_adguard_password" ]; then
+            echo -e "${YELLOW}Для CLI версии смена пароля wg-easy не требуется${NC}"
+        fi
+        ;;
+    peers) peers ;;
+    edit) edit ;;
+    update) update ;;
+    version) version ;;
+    *)
+        echo -e "\e[48;5;202m\e[30m ================================ \e[0m"
+        echo -e "\e[48;5;202m\e[30m          DWG CLI Help            \e[0m"
+        echo -e "\e[48;5;202m\e[30m ================================ \e[0m"
+        echo -e "Usage:"
+        echo -e "  dwg [command]\n"
+        echo -e "Commands:"
+        echo -e "  script-install   – Install DWG script to /usr/local/bin"
+        echo -e "  install          – Install DWG services"
+        echo -e "  uninstall        – Uninstall DWG services"
+        echo -e "  status           – Show detailed status of services"
+        echo -e "  restart          – Restart all services"
+        echo -e "  up               – Start services"
+        echo -e "  down             – Stop services"
+        echo -e "  logs             – Show logs of services"
+        echo -e "  change-password  – Change passwords for wg-easy/AdGuardHome"
+        echo -e "  reset-adguard-config – Reset AdGuardHome config and restart container"
+        echo -e "  peers            – Manage WireGuard peers (CLI version only)"
+        echo -e "  edit             – Edit docker-compose.yml (via nano)"
+        echo -e "  update           – Update DWG to latest version"
+        echo -e "  version          – Show current DWG version"
+        echo -e "\nDWG Information:"
+        echo -e "  Config Path: $CONF_DIR/AdGuardHome.yaml"
+        echo -e "  Node IP: $MYHOST_IP"
+        echo -e "  Current Version: $(get_dwg_version)"
+        echo -e "\e[48;5;202m\e[30m ================================ \e[0m"
+        ;;
+esac
